@@ -33,6 +33,45 @@
           "type": "boolean",
           "default": false,
           "description": "Enable code minification for selected files"
+        },
+        "contextPrompt.excludeDirectories": {
+          "type": "array",
+          "default": [
+            ".git",
+            "node_modules"
+          ],
+          "description": "List of directories to exclude from the file explorer"
+        },
+        "contextPrompt.excludeFileTypes": {
+          "type": "array",
+          "default": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".svg",
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".wmv",
+            ".mp3",
+            ".wav",
+            ".ogg",
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".zip",
+            ".rar",
+            ".tar",
+            ".gz",
+            ".exe",
+            ".dll",
+            ".so"
+          ],
+          "description": "List of file extensions to exclude from the file explorer"
         }
       }
     },
@@ -52,6 +91,10 @@
       {
         "command": "extension.toggleSearchBox",
         "title": "Toggle Search Box"
+      },
+      {
+        "command": "contextPrompt.updateExcludeList",
+        "title": "Update Exclude List for Context Prompt"
       }
     ],
     "menus": {

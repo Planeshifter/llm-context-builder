@@ -24,14 +24,50 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   private tokenizer = encodingForModel('gpt-4');
   private directoryTokenCounts: Map<string, number> = new Map();
   private expandedItems: Set<string> = new Set();
+  private excludeList: string[];
+  private excludeFileTypes: string[];
 
   constructor(
     private workspaceRoot: string,
     private selectedFiles: Map<string, number>
   ) {
     this.updateDirectoryTokenCounts();
-
     this.refresh = throttle(this.refresh.bind(this), 500);
+    this.excludeFileTypes = [];
+    this.excludeList = [];
+    this.loadExcludeConfigurations();
+  }
+
+  private loadExcludeConfigurations() {
+    const config = vscode.workspace.getConfiguration('contextPrompt');
+    this.excludeList = config.get<string[]>('excludeDirectories', ['.git', 'node_modules']);
+    this.excludeFileTypes = config.get<string[]>('excludeFileTypes', [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.bmp',
+      '.svg', // Images
+      '.mp4',
+      '.avi',
+      '.mov',
+      '.wmv', // Videos
+      '.mp3',
+      '.wav',
+      '.ogg', // Audio
+      '.pdf',
+      '.doc',
+      '.docx',
+      '.xls',
+      '.xlsx', // Documents
+      '.zip',
+      '.rar',
+      '.tar',
+      '.gz', // Archives
+      '.exe',
+      '.dll',
+      '.so', // Binaries
+    ]);
   }
 
   refresh(): void {
@@ -114,6 +150,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   private async addDirectory(dirPath: string) {
+    const filesProcessed: string[] = [];
+    let operationCancelled = false;
+
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -127,18 +166,35 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 
         for (const file of files) {
           if (token.isCancellationRequested) {
-            vscode.window.showInformationMessage('Add directory operation cancelled.');
+            operationCancelled = true;
             break;
           }
           await this.addFile(file);
+          filesProcessed.push(file);
           processedFiles++;
           progress.report({
             message: `Processed ${processedFiles} of ${totalFiles} files`,
             increment: (1 / totalFiles) * 100,
           });
         }
+
+        if (!operationCancelled) {
+          this.selectedFiles.set(dirPath, 1); // 1 indicates full selection
+        }
       }
     );
+
+    if (operationCancelled) {
+      // Revert changes for processed files
+      for (const processedFile of filesProcessed) {
+        this.selectedFiles.delete(processedFile);
+      }
+      this.selectedFiles.clear();
+      vscode.window.showInformationMessage('Add directory operation cancelled.');
+    }
+
+    // Force a full refresh of the tree
+    this._onDidChangeTreeData.fire();
   }
 
   private async removeDirectory(dirPath: string) {
@@ -230,26 +286,39 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     }
 
     const dir = element ? element.resourceUri.fsPath : this.workspaceRoot;
-    return await this.readDirectory(dir);
+    const items = await this.readDirectory(dir);
+    return this.sortItems(items);
   }
 
   private async readDirectory(dir: string): Promise<FileItem[]> {
     const files = await fs.promises.readdir(dir);
     const items = await Promise.all(
-      files.map(async file => {
-        const filePath = path.join(dir, file);
-        const stat = await fs.promises.stat(filePath);
-        const isDirectory = stat.isDirectory();
-        const isSelected = this.isSelected(filePath);
-        const tokenCount = isDirectory
-          ? this.directoryTokenCounts.get(filePath) || 0
-          : this.selectedFiles.get(filePath) || 0;
-        return new FileItem(vscode.Uri.file(filePath), isSelected, isDirectory, tokenCount);
-      })
+      files
+        .filter(file => !this.isExcluded(path.join(dir, file)))
+        .map(async file => {
+          const filePath = path.join(dir, file);
+          const stat = await fs.promises.stat(filePath);
+          const isDirectory = stat.isDirectory();
+          const isSelected = this.isSelected(filePath);
+          const tokenCount = isDirectory
+            ? this.directoryTokenCounts.get(filePath) || 0
+            : this.selectedFiles.get(filePath) || 0;
+          return new FileItem(vscode.Uri.file(filePath), isSelected, isDirectory, tokenCount);
+        })
     );
 
-    const filteredItems = await this.filterItems(items);
-    return this.sortItems(filteredItems);
+    return this.filterItems(items);
+  }
+
+  private isExcluded(filePath: string): boolean {
+    const relativePath = path.relative(this.workspaceRoot, filePath);
+    const isExcludedDirectory = this.excludeList.some(
+      dir => relativePath.split(path.sep).includes(dir) || relativePath === dir
+    );
+    const isExcludedFileType = this.excludeFileTypes.some(ext =>
+      filePath.toLowerCase().endsWith(ext.toLowerCase())
+    );
+    return isExcludedDirectory || isExcludedFileType;
   }
 
   private updateDirectoryTokenCounts() {
@@ -299,6 +368,10 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       }
 
       const filePath = path.join(dir, file);
+      if (this.isExcluded(filePath)) {
+        continue;
+      }
+
       const stat = await fs.promises.stat(filePath);
 
       if (stat.isDirectory()) {
@@ -511,6 +584,48 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(toggleMinification);
+
+  const updateExcludeList = vscode.commands.registerCommand(
+    'contextPrompt.updateExcludeList',
+    async () => {
+      const config = vscode.workspace.getConfiguration('contextPrompt');
+      const currentExcludeList = config.get<string[]>('excludeDirectories', []);
+      const currentExcludeFileTypes = config.get<string[]>('excludeFileTypes', []);
+
+      const excludeInput = await vscode.window.showInputBox({
+        prompt: 'Enter comma-separated list of directories to exclude',
+        value: currentExcludeList.join(', '),
+      });
+
+      const excludeFileTypesInput = await vscode.window.showInputBox({
+        prompt: 'Enter comma-separated list of file extensions to exclude (include the dot)',
+        value: currentExcludeFileTypes.join(', '),
+      });
+
+      if (excludeInput !== undefined) {
+        const newExcludeList = excludeInput.split(',').map(item => item.trim());
+        await config.update(
+          'excludeDirectories',
+          newExcludeList,
+          vscode.ConfigurationTarget.Global
+        );
+      }
+
+      if (excludeFileTypesInput !== undefined) {
+        const newExcludeFileTypes = excludeFileTypesInput.split(',').map(item => item.trim());
+        await config.update(
+          'excludeFileTypes',
+          newExcludeFileTypes,
+          vscode.ConfigurationTarget.Global
+        );
+      }
+
+      vscode.window.showInformationMessage('Exclude list updated. Refreshing file explorer.');
+      fileExplorerProvider.refresh();
+    }
+  );
+
+  context.subscriptions.push(updateExcludeList);
 
   return { fileExplorerProvider };
 }
