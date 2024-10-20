@@ -1,0 +1,116 @@
+{
+  "name": "vscode-context-prompt",
+  "publisher": "Philipp Burckhardt",
+  "displayName": "VS Code Context Prompt",
+  "description": "Create context prompts from selected files and folders for LLMs",
+  "license": "BlueOak-1.0.0",
+  "version": "0.0.5",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Planeshifter/vscode-llm-context"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "fileExplorer",
+          "name": "Context Files"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Chat",
+      "properties": {
+        "aiChat.minifyCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable code minification for selected files"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "extension.toggleFileSelection",
+        "title": "Toggle Selection for Context"
+      },
+      {
+        "command": "extension.deselectAllFiles",
+        "title": "Deselect All"
+      },
+      {
+        "command": "extension.createContextPrompt",
+        "title": "Create Context Prompt"
+      },
+      {
+        "command": "extension.toggleSearchBox",
+        "title": "Toggle Search Box"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "extension.toggleFileSelection",
+          "when": "view == fileExplorer",
+          "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "extension.deselectAllFiles",
+          "when": "view == fileExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "extension.createContextPrompt",
+          "when": "view == fileExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "extension.toggleSearchBox",
+          "when": "view == fileExplorer",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --external:esbuild --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "format": "prettier --write \"src/**/*.ts\" \"media/**/*.js\" \"media/**/*.css\"",
+    "test-compile": "tsc -p ./",
+    "compile": "npm run esbuild",
+    "watch": "npm run esbuild-watch",
+    "pretest": "npm run test-compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.7",
+    "@types/vscode": "^1.94.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.10.0",
+    "vsce": "^2.15.0",
+    "vscode-test": "^1.6.1"
+  },
+  "dependencies": {
+    "@types/lodash.throttle": "^4.1.9",
+    "esbuild": "^0.24.0",
+    "js-tiktoken": "^1.0.15",
+    "lodash.throttle": "^4.1.1"
+  }
+}
