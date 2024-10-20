@@ -9,7 +9,12 @@
     ],
     "sourceMap": true,
     "rootDir": ".",
-    "strict": true
+    "strict": true,
+    "types": [
+      "node",
+      "mocha",
+      "sinon"
+    ]
   },
   "include": [
     "src",
