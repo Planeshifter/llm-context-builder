@@ -1,8 +1,8 @@
 {
-  "name": "vscode-context-prompt",
+  "name": "vscode-llm-context-builder",
   "publisher": "Philipp Burckhardt",
-  "displayName": "VS Code Context Prompt",
-  "description": "Create context prompts from selected files and folders for LLMs",
+  "displayName": "VS Code LLM Context Builder",
+  "description": "Assemble contextual information from project files for usage in LLMs.",
   "license": "BlueOak-1.0.0",
   "version": "0.0.5",
   "repository": {
@@ -22,14 +22,14 @@
       "explorer": [
         {
           "id": "fileExplorer",
-          "name": "Context Files"
+          "name": "LLM Context Builder"
         }
       ]
     },
     "configuration": {
-      "title": "AI Chat",
+      "title": "LLM Context Builder",
       "properties": {
-        "aiChat.minifyCode": {
+        "contextPrompt.minifyCode": {
           "type": "boolean",
           "default": false,
           "description": "Enable code minification for selected files"
