@@ -7,12 +7,18 @@
   "version": "0.0.5",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Planeshifter/vscode-llm-context"
+    "url": "https://github.com/Planeshifter/llm-context-builder"
+  },
+  "homepage": "https://github.com/Planeshifter/llm-context-builder/blob/main/README.md",
+  "bugs": {
+    "url": "https://github.com/Planeshifter/llm-context-builder/issues",
+    "email": "sean@contoso.com"
   },
   "engines": {
     "vscode": "^1.94.0"
   },
   "categories": [
+    "Machine Learning",
     "Other"
   ],
   "activationEvents": [],
