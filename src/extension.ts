@@ -181,8 +181,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         if (!operationCancelled) {
           this.selectedFiles.set(dirPath, 1); // 1 indicates full selection
           dirs.forEach(dir => this.selectedFiles.set(dir, 1));
-          // Set the parent directories to partially selected if needed
-          await this.updateParentDirectorySelection(dirPath);
+          await this.updateParentDirectoriesOnAdd(dirPath);
         }
       }
     );
@@ -236,11 +235,49 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   private async toggleFileSelection(filePath: string, select: boolean) {
     if (select) {
       await this.addFile(filePath);
+      await this.updateParentDirectoriesOnAdd(filePath);
     } else {
       this.selectedFiles.delete(filePath);
       // Set the parent directories to partially selected if needed
       await this.updateParentDirectorySelection(filePath);
     }
+  }
+
+  private async updateParentDirectoriesOnAdd(filePath: string) {
+    let dir = path.dirname(filePath);
+    while (dir !== this.workspaceRoot && dir !== path.dirname(dir)) {
+      const isFullySelected = await this.checkDirectoryFullySelected(dir);
+      this.selectedFiles.set(dir, isFullySelected ? 1 : 0);
+      if (!isFullySelected) {
+        // If not fully selected, we don't need to check further up
+        break;
+      }
+      dir = path.dirname(dir);
+    }
+    // Update the root directory
+    const isRootFullySelected = await this.checkDirectoryFullySelected(this.workspaceRoot);
+    this.selectedFiles.set(this.workspaceRoot, isRootFullySelected ? 1 : 0);
+  }
+
+  private async checkDirectoryFullySelected(dirPath: string): Promise<boolean> {
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (this.isExcluded(fullPath)) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        const dirSelection = this.selectedFiles.get(fullPath);
+        if (dirSelection !== 1) {
+          return false;
+        }
+      } else {
+        if (!this.selectedFiles.has(fullPath)) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private async updateParentDirectorySelection(filePath: string) {
