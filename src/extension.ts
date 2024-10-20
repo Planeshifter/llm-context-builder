@@ -19,6 +19,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   readonly onDidChangeTreeData: vscode.Event<FileItem | undefined | null | void> =
     this._onDidChangeTreeData.event;
 
+  private _selected: Map<string, number> = new Map();
   private searchTerms: string[] = [];
   private expandedDirs: Set<string> = new Set();
   private tokenizer = encodingForModel('gpt-4');
@@ -27,15 +28,16 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   private excludeList: string[];
   private excludeFileTypes: string[];
 
-  constructor(
-    private workspaceRoot: string,
-    private selectedFiles: Map<string, number>
-  ) {
+  constructor(private workspaceRoot: string) {
     this.updateDirectoryTokenCounts();
     this.refresh = throttle(this.refresh.bind(this), 500);
     this.excludeFileTypes = [];
     this.excludeList = [];
     this.loadExcludeConfigurations();
+  }
+
+  get selected(): typeof this._selected {
+    return this._selected;
   }
 
   private loadExcludeConfigurations() {
@@ -118,12 +120,17 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         await this.addFile(file);
       }
       // Optionally, mark the directory itself as selected partially
-      this.selectedFiles.set(dirPath, 0); // 0 can indicate partial selection
+      this._selected.set(dirPath, 1); // 1 can indicate full selection
+      // Set the parent directories to partially selected if needed
+      await this.updateParentDirectoriesOnAdd(dirPath);
     } else {
+      // Case: Deselect directory
       for (const file of matchingFiles) {
-        this.selectedFiles.delete(file);
+        this._selected.delete(file);
       }
-      this.selectedFiles.delete(dirPath);
+      this._selected.delete(dirPath);
+      // Set the parent directories to partially selected if needed
+      await this.updateParentDirectorySelection(dirPath);
     }
   }
 
@@ -143,9 +150,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     }
     // Optionally, update the selection state of the directory itself
     if (select) {
-      this.selectedFiles.set(dirPath, 1); // 1 can indicate full selection
+      this._selected.set(dirPath, 1); // 1 can indicate full selection
     } else {
-      this.selectedFiles.delete(dirPath);
+      this._selected.delete(dirPath);
     }
   }
 
@@ -179,8 +186,8 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         }
 
         if (!operationCancelled) {
-          this.selectedFiles.set(dirPath, 1); // 1 indicates full selection
-          dirs.forEach(dir => this.selectedFiles.set(dir, 1));
+          this._selected.set(dirPath, 1); // 1 indicates full selection
+          dirs.forEach(dir => this._selected.set(dir, 1));
           await this.updateParentDirectoriesOnAdd(dirPath);
         }
       }
@@ -189,9 +196,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     if (operationCancelled) {
       // Revert changes for processed files
       for (const processedFile of filesProcessed) {
-        this.selectedFiles.delete(processedFile);
+        this._selected.delete(processedFile);
       }
-      this.selectedFiles.clear();
+      this._selected.clear();
       vscode.window.showInformationMessage('Add directory operation cancelled.');
     }
 
@@ -216,7 +223,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
             vscode.window.showInformationMessage('Remove directory operation cancelled.');
             break;
           }
-          this.selectedFiles.delete(file);
+          this._selected.delete(file);
           processedFiles++;
           progress.report({
             message: `Processed ${processedFiles} of ${totalFiles} files`,
@@ -224,8 +231,8 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
           });
         }
         // Remove the directory itself from selected files
-        this.selectedFiles.delete(dirPath);
-        dirs.forEach(dir => this.selectedFiles.delete(dir));
+        this._selected.delete(dirPath);
+        dirs.forEach(dir => this._selected.delete(dir));
         // Set the parent directories to partially selected if needed
         await this.updateParentDirectorySelection(dirPath);
       }
@@ -237,7 +244,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       await this.addFile(filePath);
       await this.updateParentDirectoriesOnAdd(filePath);
     } else {
-      this.selectedFiles.delete(filePath);
+      this._selected.delete(filePath);
       // Set the parent directories to partially selected if needed
       await this.updateParentDirectorySelection(filePath);
     }
@@ -247,16 +254,16 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     let dir = path.dirname(filePath);
     while (dir !== this.workspaceRoot && dir !== path.dirname(dir)) {
       const isFullySelected = await this.checkDirectoryFullySelected(dir);
-      this.selectedFiles.set(dir, isFullySelected ? 1 : 0);
+      this._selected.set(dir, isFullySelected ? 1 : 0);
       if (!isFullySelected) {
-        // If not fully selected, we don't need to check further up
+        // If not fully selected, we don't need to check further up...
         break;
       }
       dir = path.dirname(dir);
     }
-    // Update the root directory
+    // Update the root directory:
     const isRootFullySelected = await this.checkDirectoryFullySelected(this.workspaceRoot);
-    this.selectedFiles.set(this.workspaceRoot, isRootFullySelected ? 1 : 0);
+    this._selected.set(this.workspaceRoot, isRootFullySelected ? 1 : 0);
   }
 
   private async checkDirectoryFullySelected(dirPath: string): Promise<boolean> {
@@ -266,13 +273,20 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       if (this.isExcluded(fullPath)) {
         continue;
       }
+      const relativePath = path.relative(this.workspaceRoot, fullPath);
+      if (this.searchTerms.length > 0 && !this.pathMatchesSearch(relativePath)) {
+        continue;
+      }
       if (entry.isDirectory()) {
-        const dirSelection = this.selectedFiles.get(fullPath);
+        const dirSelection = this._selected.get(fullPath);
         if (dirSelection !== 1) {
-          return false;
+          const hasSelectedChildren = await this.directoryHasSelectedChildren(fullPath);
+          if (hasSelectedChildren) {
+            return false;
+          }
         }
       } else {
-        if (!this.selectedFiles.has(fullPath)) {
+        if (!this._selected.has(fullPath)) {
           return false;
         }
       }
@@ -285,9 +299,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     while (dir !== this.workspaceRoot && dir !== path.dirname(dir)) {
       const hasSelectedChildren = await this.directoryHasSelectedChildren(dir);
       if (hasSelectedChildren) {
-        this.selectedFiles.set(dir, 0); // Mark directory as partially selected
+        this._selected.set(dir, 0); // Mark directory as partially selected
       } else {
-        this.selectedFiles.delete(dir);
+        this._selected.delete(dir);
       }
       dir = path.dirname(dir);
     }
@@ -297,7 +311,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     const files = await fs.promises.readdir(dirPath);
     for (const file of files) {
       const fullPath = path.join(dirPath, file);
-      if (this.selectedFiles.has(fullPath)) {
+      if (this._selected.has(fullPath)) {
         return true;
       }
       const stat = await fs.promises.stat(fullPath);
@@ -309,7 +323,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   isSelected(filePath: string): boolean {
-    return this.selectedFiles.has(filePath) && this.selectedFiles.get(filePath)! > 0;
+    return this._selected.has(filePath) && this._selected.get(filePath)! > 0;
   }
 
   toggleExpanded(item: FileItem) {
@@ -345,7 +359,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
           const isSelected = this.isSelected(filePath);
           const tokenCount = isDirectory
             ? this.directoryTokenCounts.get(filePath) || 0
-            : this.selectedFiles.get(filePath) || 0;
+            : this._selected.get(filePath) || 0;
           return new FileItem(vscode.Uri.file(filePath), isSelected, isDirectory, tokenCount);
         })
     );
@@ -366,7 +380,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 
   private updateDirectoryTokenCounts() {
     this.directoryTokenCounts.clear();
-    for (const [filePath, tokenCount] of this.selectedFiles.entries()) {
+    for (const [filePath, tokenCount] of this._selected.entries()) {
       let dir = path.dirname(filePath);
       while (dir !== this.workspaceRoot && dir !== path.dirname(dir)) {
         const currentCount = this.directoryTokenCounts.get(dir) || 0;
@@ -394,7 +408,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     }
 
     const tokenCount = this.tokenizer.encode(content).length;
-    this.selectedFiles.set(filePath, tokenCount);
+    this._selected.set(filePath, tokenCount);
     await this.updateParentDirectorySelection(filePath);
   }
 
@@ -405,7 +419,6 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     if (token?.isCancellationRequested) {
       return { files: [], dirs: [] };
     }
-
     const files = await fs.promises.readdir(dir);
     const allFiles: string[] = [];
     const allDirs: string[] = [];
@@ -414,14 +427,12 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       if (token?.isCancellationRequested) {
         return { files: allFiles, dirs: [] };
       }
-
       const filePath = path.join(dir, file);
       if (this.isExcluded(filePath)) {
         continue;
       }
 
       const stat = await fs.promises.stat(filePath);
-
       if (stat.isDirectory()) {
         const { files, dirs } = await this.getAllChildren(filePath, token);
         allDirs.push(filePath, ...dirs);
@@ -434,7 +445,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   async getSelectedFiles(): Promise<string[]> {
-    return Array.from(this.selectedFiles.keys());
+    return Array.from(this._selected.keys());
   }
 
   getTotalTokenCount(): number {
@@ -478,14 +489,8 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       if (a.isDirectory !== b.isDirectory) {
         return a.isDirectory ? -1 : 1;
       }
-      return this.getSortableLabel(a).localeCompare(this.getSortableLabel(b));
+      return getLabelText(a).localeCompare(getLabelText(b));
     });
-  }
-
-  private getSortableLabel(item: FileItem): string {
-    // Remove the checkmark from the label for sorting purposes:
-    const label = getLabelText(item);
-    return label;
   }
 
   private pathMatchesSearch(relativePath: string): boolean {
@@ -519,8 +524,6 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-  const selectedFiles = new Map<string, number>();
-
   const workspaceRoot =
     vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
 
@@ -529,19 +532,32 @@ export async function activate(context: vscode.ExtensionContext) {
     return;
   }
 
-  const fileExplorerProvider = new FileExplorerProvider(workspaceRoot, selectedFiles);
+  const fileExplorerProvider = new FileExplorerProvider(workspaceRoot);
   const treeView = vscode.window.createTreeView('fileExplorer', {
     treeDataProvider: fileExplorerProvider,
     canSelectMany: false,
   });
 
+  let acceptedSearchValue = '';
+  let currentSearchValue = '';
   const searchBox = vscode.window.createInputBox();
   searchBox.placeholder = 'Filter files in tree view by comma-separated search terms...';
+  searchBox.onDidAccept(() => {
+    acceptedSearchValue = searchBox.value;
+    currentSearchValue = acceptedSearchValue;
+    fileExplorerProvider.setSearchTerms(acceptedSearchValue);
+    searchBox.hide();
+  });
   searchBox.onDidChangeValue(value => {
-    fileExplorerProvider.setSearchTerms(value);
+    currentSearchValue = value;
+  });
+  searchBox.onDidHide(() => {
+    // Revert to the last accepted value if the box is closed without accepting
+    currentSearchValue = acceptedSearchValue;
   });
 
   const toggleSearchBox = vscode.commands.registerCommand('extension.toggleSearchBox', () => {
+    searchBox.value = currentSearchValue;
     searchBox.show();
   });
 
@@ -560,8 +576,8 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 
   const deselectAllFiles = vscode.commands.registerCommand('extension.deselectAllFiles', () => {
-    const count = selectedFiles.size;
-    selectedFiles.clear();
+    const count = fileExplorerProvider.selected.size;
+    fileExplorerProvider.selected.clear();
     vscode.window.showInformationMessage(`Deselected ${count} item(s)`);
     fileExplorerProvider.refresh();
   });
@@ -587,7 +603,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const selectedFilePaths = await fileExplorerProvider.getSelectedFiles();
       if (selectedFilePaths.length === 0) {
         vscode.window.showInformationMessage(
-          'No files selected. Select files or folders in the Context Files view.'
+          'No files selected. Select files or folders in the tree view.'
         );
         return;
       }
@@ -609,14 +625,6 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(
-    toggleSearchBox,
-    toggleFileSelection,
-    toggleExpanded,
-    deselectAllFiles,
-    createPrompt
-  );
-
   const toggleMinification = vscode.commands.registerCommand(
     'contextPrompt.toggleMinification',
     async () => {
@@ -627,12 +635,9 @@ export async function activate(context: vscode.ExtensionContext) {
       const newState = !currentValue ? 'enabled' : 'disabled';
       vscode.window.showInformationMessage(`Code minification ${newState}.`);
 
-      // Refresh the file explorer to update token counts
       fileExplorerProvider.refresh();
     }
   );
-
-  context.subscriptions.push(toggleMinification);
 
   const updateExcludeList = vscode.commands.registerCommand(
     'contextPrompt.updateExcludeList',
@@ -647,7 +652,7 @@ export async function activate(context: vscode.ExtensionContext) {
       });
 
       const excludeFileTypesInput = await vscode.window.showInputBox({
-        prompt: 'Enter comma-separated list of file extensions to exclude (include the dot)',
+        prompt: 'Enter comma-separated list of file extensions to exclude (e.g., .png)',
         value: currentExcludeFileTypes.join(', '),
       });
 
@@ -668,13 +673,20 @@ export async function activate(context: vscode.ExtensionContext) {
           vscode.ConfigurationTarget.Global
         );
       }
-
-      vscode.window.showInformationMessage('Exclude list updated. Refreshing file explorer.');
+      vscode.window.showInformationMessage('Exclude list successfully updated.');
       fileExplorerProvider.refresh();
     }
   );
 
-  context.subscriptions.push(updateExcludeList);
+  context.subscriptions.push(
+    createPrompt,
+    deselectAllFiles,
+    toggleExpanded,
+    toggleFileSelection,
+    toggleMinification,
+    toggleSearchBox,
+    updateExcludeList
+  );
 
   return { fileExplorerProvider };
 }
