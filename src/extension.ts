@@ -128,11 +128,11 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   private async getMatchingFiles(dirPath: string): Promise<string[]> {
-    const allFiles = await this.getAllFiles(dirPath);
+    const { files } = await this.getAllChildren(dirPath);
     if (this.searchTerms.length === 0) {
-      return allFiles;
+      return files;
     }
-    return allFiles.filter(file => this.pathMatchesSearch(path.relative(this.workspaceRoot, file)));
+    return files.filter(file => this.pathMatchesSearch(path.relative(this.workspaceRoot, file)));
   }
 
   private async toggleDirectorySelection(dirPath: string, select: boolean) {
@@ -160,7 +160,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         cancellable: true,
       },
       async (progress, token) => {
-        const files = await this.getAllFiles(dirPath, token);
+        const { files, dirs } = await this.getAllChildren(dirPath, token);
         const totalFiles = files.length;
         let processedFiles = 0;
 
@@ -180,6 +180,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 
         if (!operationCancelled) {
           this.selectedFiles.set(dirPath, 1); // 1 indicates full selection
+          dirs.forEach(dir => this.selectedFiles.set(dir, 1));
+          // Set the parent directories to partially selected if needed
+          await this.updateParentDirectorySelection(dirPath);
         }
       }
     );
@@ -205,7 +208,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         cancellable: true,
       },
       async (progress, token) => {
-        const files = await this.getAllFiles(dirPath, token);
+        const { files, dirs } = await this.getAllChildren(dirPath, token);
         const totalFiles = files.length;
         let processedFiles = 0;
 
@@ -223,6 +226,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         }
         // Remove the directory itself from selected files
         this.selectedFiles.delete(dirPath);
+        dirs.forEach(dir => this.selectedFiles.delete(dir));
+        // Set the parent directories to partially selected if needed
+        await this.updateParentDirectorySelection(dirPath);
       }
     );
   }
@@ -232,9 +238,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       await this.addFile(filePath);
     } else {
       this.selectedFiles.delete(filePath);
+      // Set the parent directories to partially selected if needed
+      await this.updateParentDirectorySelection(filePath);
     }
-    // Update parent directories
-    await this.updateParentDirectorySelection(filePath);
   }
 
   private async updateParentDirectorySelection(filePath: string) {
@@ -352,19 +358,24 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 
     const tokenCount = this.tokenizer.encode(content).length;
     this.selectedFiles.set(filePath, tokenCount);
+    await this.updateParentDirectorySelection(filePath);
   }
 
-  private async getAllFiles(dir: string, token?: vscode.CancellationToken): Promise<string[]> {
+  private async getAllChildren(
+    dir: string,
+    token?: vscode.CancellationToken
+  ): Promise<{ files: string[]; dirs: string[] }> {
     if (token?.isCancellationRequested) {
-      return [];
+      return { files: [], dirs: [] };
     }
 
     const files = await fs.promises.readdir(dir);
     const allFiles: string[] = [];
+    const allDirs: string[] = [];
 
     for (const file of files) {
       if (token?.isCancellationRequested) {
-        return allFiles;
+        return { files: allFiles, dirs: [] };
       }
 
       const filePath = path.join(dir, file);
@@ -375,13 +386,14 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       const stat = await fs.promises.stat(filePath);
 
       if (stat.isDirectory()) {
-        const subFiles = await this.getAllFiles(filePath, token);
-        allFiles.push(...subFiles);
+        const { files, dirs } = await this.getAllChildren(filePath, token);
+        allDirs.push(filePath, ...dirs);
+        allFiles.push(...files);
       } else {
         allFiles.push(filePath);
       }
     }
-    return allFiles;
+    return { files: allFiles, dirs: allDirs };
   }
 
   async getSelectedFiles(): Promise<string[]> {
