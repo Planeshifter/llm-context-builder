@@ -1,6 +1,6 @@
 {
   "name": "vscode-llm-context-builder",
-  "publisher": "Philipp Burckhardt",
+  "publisher": "philipp-burckhardt",
   "displayName": "VS Code LLM Context Builder",
   "description": "Assemble contextual information from project files for usage in LLMs.",
   "license": "BlueOak-1.0.0",
@@ -10,7 +10,7 @@
     "url": "https://github.com/Planeshifter/vscode-llm-context"
   },
   "engines": {
-    "vscode": "^1.93.0"
+    "vscode": "^1.94.0"
   },
   "categories": [
     "Other"
@@ -146,14 +146,13 @@
     "@types/vscode": "^1.94.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.0",
     "eslint": "^9.13.0",
     "mocha": "^10.7.3",
     "prettier": "^3.3.3",
     "sinon": "^19.0.2",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.10.0",
-    "vsce": "^2.15.0",
-    "vscode-test": "^1.6.1"
+    "typescript-eslint": "^8.10.0"
   },
   "dependencies": {
     "@types/lodash.throttle": "^4.1.9",
