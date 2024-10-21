@@ -3,7 +3,7 @@
 > VS Code extension for building context prompts for Large Language Models (LLMs).
 
 <p align="center">
-  <img alt="LLM Context Builder Demo" src="media/screenshot.png" />
+  <img alt="LLM Context Builder Demo" src="media/demo.gif" />
 </p>
 
 ## Features
