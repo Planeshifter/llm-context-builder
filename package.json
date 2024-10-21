@@ -1,5 +1,5 @@
 {
-  "name": "vscode-llm-context-builder",
+  "name": "llm-context-builder",
   "publisher": "philipp-burckhardt",
   "displayName": "LLM Context Builder",
   "description": "Assemble contextual information from project files for usage in LLMs.",
