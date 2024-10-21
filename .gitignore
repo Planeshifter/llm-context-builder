@@ -4,3 +4,4 @@ node_modules
 *.vsix
 test/**/*.js
 test/**/*.js.map
+.DS_Store
