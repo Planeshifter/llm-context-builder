@@ -17,7 +17,7 @@
 
 ## Install
 
-1. Visit the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=yourusername.llm-context-builder)
+1. Visit the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=philipp-burckhardt.llm-context-builder)
 2. Click "Install"
 3. Reload VS Code when prompted
 
