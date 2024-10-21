@@ -91,10 +91,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       let contextPrompt = '';
+      let noFiles = 0;
       for (const filePath of selectedFilePaths) {
         const stats = await fs.promises.stat(filePath);
         if (!stats.isDirectory()) {
           contextPrompt += await getFileContent(filePath, workspaceRoot);
+          noFiles += 1;
         }
       }
 
@@ -102,7 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
       await vscode.env.clipboard.writeText(contextPrompt);
       vscode.window.showInformationMessage(
-        `Context with ${selectedFilePaths.length} item(s) copied to clipboard (${totalTokenCount} tokens)!`
+        `Context with ${noFiles} item(s) copied to clipboard (${totalTokenCount} tokens)!`
       );
     }
   );
