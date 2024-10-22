@@ -141,7 +141,7 @@
     "package": "vsce package",
     "pretest": "npm run test-compile && npm run lint",
     "test-compile": "tsc -p ./",
-    "test": "vscode-test",
+    "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "npm run esbuild-base -- --minify",
     "watch": "npm run esbuild-watch"
   },
