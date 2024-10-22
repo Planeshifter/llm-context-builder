@@ -21,15 +21,8 @@
 
 ## Install
 
-1. Visit the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=philipp-burckhardt.llm-context-builder)
-2. Click "Install"
-3. Reload VS Code when prompted
-
-Or install from VS Code:
-
-1. Open Extensions (Ctrl+Shift+X)
-2. Search for "LLM Context Builder"
-3. Click Install
+- **From Visual Studio Marketplace**: Install directly from the [marketplace](https://marketplace.visualstudio.com/items?itemName=philipp-burckhardt.llm-context-builder) and reload VS Code if prompted.
+- **From within Visual Studio Code**: Open Extensions (Ctrl+Shift+X), search "LLM Context Builder", and click Install.
 
 ## Usage
 
