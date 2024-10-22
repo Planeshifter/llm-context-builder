@@ -1,13 +1,13 @@
 # LLM Context Builder
 
-![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/philipp-burckhardt.llm-context-builder)
+![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/philipp-burckhardt.llm-context-builder&logo=visual-studio-code&style=flat-square)
 ![Visual Studio Marketplace Installs - Azure DevOps Extension](https://img.shields.io/visual-studio-marketplace/azure-devops/installs/total/philipp-burckhardt.llm-context-builder)
 [![GitHub Actions Workflow Status](https://github.com/Planeshifter/llm-context-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/Planeshifter/llm-context-builder/actions/workflows/ci.yml)
 
 > VS Code extension for building context prompts for Large Language Models (LLMs).
 
 <p align="center">
-  <img alt="LLM Context Builder Demo" src="https://github.com/Planeshifter/llm-context-builder/blob/main/media/demo.gif" style="width: 75%; height: 75%; border: 1px solid #000000; border-radius: 4px;"">
+  <img alt="LLM Context Builder Demo" src="https://raw.githubusercontent.com/Planeshifter/llm-context-builder/refs/heads/main/media/demo.gif" style="width: 75%; height: 75%; border: 1px solid #000000; border-radius: 4px;"">
 </p>
 
 ## Features
