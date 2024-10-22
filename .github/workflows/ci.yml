@@ -20,11 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint code
-        run: npm run lint
-
-      - name: Build extension
-        run: npm run compile
-
-      - name: Run tests
-        run: npm test
+      - name: Run headless test
+        uses: gabrielbb/xvfb-action@v1
+        with:
+          run: npm test
