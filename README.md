@@ -1,6 +1,6 @@
 # LLM Context Builder
 
-![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/philipp-burckhardt.llm-context-builder&logo=visual-studio-code&style=flat-square)
+![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/philipp-burckhardt.llm-context-builder)
 ![Visual Studio Marketplace Installs - Azure DevOps Extension](https://img.shields.io/visual-studio-marketplace/azure-devops/installs/total/philipp-burckhardt.llm-context-builder)
 [![GitHub Actions Workflow Status](https://github.com/Planeshifter/llm-context-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/Planeshifter/llm-context-builder/actions/workflows/ci.yml)
 
