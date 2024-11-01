@@ -545,32 +545,9 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     return result;
   }
 
-  async countVisibleFiles(): Promise<number> {
-    let count = 0;
-    const processDir = async (dirPath: string) => {
-      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry.name);
-        if (this.isExcluded(fullPath)) continue;
-
-        const relativePath = path.relative(this.workspaceRoot, fullPath);
-        if (this.searchTerms.length > 0 && !this.pathMatchesSearch(relativePath)) continue;
-
-        if (entry.isDirectory()) {
-          await processDir(fullPath);
-        } else {
-          count++;
-        }
-      }
-    };
-
-    await processDir(this.workspaceRoot);
-    return count;
-  }
-
   async selectAllFiles(maxFiles: number): Promise<boolean> {
-    const fileCount = await this.countVisibleFiles();
-    if (fileCount > maxFiles) {
+    const visibleFiles = await this.getVisibleFiles();
+    if (visibleFiles.length > maxFiles) {
       return false;
     }
 
@@ -582,7 +559,6 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         cancellable: true,
       },
       async (progress, token) => {
-        const visibleFiles = await this.getVisibleFiles();
         for (const file of visibleFiles) {
           if (token.isCancellationRequested) {
             this._selected.clear();
@@ -591,8 +567,8 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
           await this.selectFile(file);
           processedCount++;
           progress.report({
-            message: `Selected ${processedCount} of ${fileCount} files`,
-            increment: (1 / fileCount) * 100,
+            message: `Selected ${processedCount} of ${visibleFiles.length} files`,
+            increment: (1 / visibleFiles.length) * 100,
           });
         }
       }
