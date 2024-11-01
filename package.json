@@ -102,6 +102,11 @@
       {
         "command": "contextPrompt.updateExcludeList",
         "title": "Update Exclude List for Context Prompt"
+      },
+      {
+        "command": "extension.openSelectedFiles",
+        "title": "Open Selected Files",
+        "category": "File Explorer"
       }
     ],
     "menus": {

@@ -162,6 +162,29 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const openSelectedFiles = vscode.commands.registerCommand(
+    'extension.openSelectedFiles',
+    async () => {
+      const selectedFilePaths = await fileExplorerProvider.getSelectedFiles();
+      if (selectedFilePaths.length === 0) {
+        vscode.window.showInformationMessage('No files selected. Select files in the tree view.');
+        return;
+      }
+
+      let openedCount = 0;
+      for (const filePath of selectedFilePaths) {
+        const stats = await fs.promises.stat(filePath);
+        if (!stats.isDirectory()) {
+          const document = await vscode.workspace.openTextDocument(filePath);
+          await vscode.window.showTextDocument(document, { preview: false });
+          openedCount++;
+        }
+      }
+
+      vscode.window.showInformationMessage(`Opened ${openedCount} file(s) in editor`);
+    }
+  );
+
   context.subscriptions.push(
     createPrompt,
     deselectAllFiles,
@@ -169,7 +192,8 @@ export async function activate(context: vscode.ExtensionContext) {
     toggleFileSelection,
     toggleMinification,
     toggleSearchBox,
-    updateExcludeList
+    updateExcludeList,
+    openSelectedFiles
   );
 
   return { fileExplorerProvider };
