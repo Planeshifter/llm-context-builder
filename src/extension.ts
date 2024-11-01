@@ -5,6 +5,8 @@ import { FileExplorerProvider } from './file-explorer-provider';
 import { FileItem } from './file-item';
 import { getFileContent } from './utils';
 
+const MAX_SELECT_FILES = 100;
+
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceRoot =
     vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].uri.fsPath;
@@ -185,6 +187,35 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const selectAllFiles = vscode.commands.registerCommand('extension.selectAllFiles', async () => {
+    const success = await fileExplorerProvider.selectAllFiles(MAX_SELECT_FILES);
+    if (!success) {
+      vscode.window.showErrorMessage(
+        `Cannot select all files: workspace contains more than ${MAX_SELECT_FILES} files. Please use search to filter files first.`
+      );
+      return;
+    }
+    const selectedFiles = await fileExplorerProvider.getSelectedFiles();
+    vscode.window.showInformationMessage(`Selected ${selectedFiles.length} file(s)`);
+  });
+
+  const updateCommandState = async () => {
+    const fileCount = await fileExplorerProvider.countVisibleFiles();
+    vscode.commands.executeCommand(
+      'setContext',
+      'contextPrompt.tooManyFiles',
+      fileCount > MAX_SELECT_FILES
+    );
+  };
+
+  const oldSetSearchTerms = fileExplorerProvider.setSearchTerms.bind(fileExplorerProvider);
+  fileExplorerProvider.setSearchTerms = (term: string) => {
+    oldSetSearchTerms(term);
+    updateCommandState();
+  };
+
+  updateCommandState();
+
   context.subscriptions.push(
     createPrompt,
     deselectAllFiles,
@@ -193,7 +224,8 @@ export async function activate(context: vscode.ExtensionContext) {
     toggleMinification,
     toggleSearchBox,
     updateExcludeList,
-    openSelectedFiles
+    openSelectedFiles,
+    selectAllFiles
   );
 
   return { fileExplorerProvider };

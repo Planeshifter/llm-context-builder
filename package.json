@@ -86,31 +86,43 @@
       {
         "command": "extension.toggleFileSelection",
         "title": "Toggle Selection for Context",
+        "shortTitle": "Toggle Selection",
         "category": "Context Builder"
       },
       {
         "command": "extension.deselectAllFiles",
-        "title": "Deselect All",
+        "title": "Deselect All Files",
+        "shortTitle": "Deselect All",
+        "category": "Context Builder"
+      },
+      {
+        "command": "extension.selectAllFiles",
+        "title": "Select All Files",
+        "shortTitle": "Select All",
         "category": "Context Builder"
       },
       {
         "command": "extension.createContextPrompt",
         "title": "Create Context Prompt",
+        "shortTitle": "Create Prompt",
         "category": "Context Builder"
       },
       {
         "command": "extension.toggleSearchBox",
-        "title": "Toggle Search Box",
+        "title": "Search Box",
+        "shortTitle": "Search",
         "category": "Context Builder"
       },
       {
         "command": "contextPrompt.updateExcludeList",
         "title": "Update Exclude List for Context Prompt",
+        "shortTitle": "Update Exclude List",
         "category": "Context Builder"
       },
       {
         "command": "extension.openSelectedFiles",
         "title": "Open Selected Files",
+        "shortTitle": "Open Files",
         "category": "Context Builder"
       }
     ],
@@ -125,6 +137,11 @@
       "view/title": [
         {
           "command": "extension.deselectAllFiles",
+          "when": "view == fileExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "extension.selectAllFiles",
           "when": "view == fileExplorer",
           "group": "navigation@1"
         },
