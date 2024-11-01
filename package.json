@@ -85,28 +85,33 @@
     "commands": [
       {
         "command": "extension.toggleFileSelection",
-        "title": "Toggle Selection for Context"
+        "title": "Toggle Selection for Context",
+        "category": "Context Builder"
       },
       {
         "command": "extension.deselectAllFiles",
-        "title": "Deselect All"
+        "title": "Deselect All",
+        "category": "Context Builder"
       },
       {
         "command": "extension.createContextPrompt",
-        "title": "Create Context Prompt"
+        "title": "Create Context Prompt",
+        "category": "Context Builder"
       },
       {
         "command": "extension.toggleSearchBox",
-        "title": "Toggle Search Box"
+        "title": "Toggle Search Box",
+        "category": "Context Builder"
       },
       {
         "command": "contextPrompt.updateExcludeList",
-        "title": "Update Exclude List for Context Prompt"
+        "title": "Update Exclude List for Context Prompt",
+        "category": "Context Builder"
       },
       {
         "command": "extension.openSelectedFiles",
         "title": "Open Selected Files",
-        "category": "File Explorer"
+        "category": "Context Builder"
       }
     ],
     "menus": {
