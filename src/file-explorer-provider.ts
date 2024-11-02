@@ -522,31 +522,13 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
     this.refresh();
   }
 
-  async getVisibleFiles(): Promise<string[]> {
-    const result: string[] = [];
-    const processDir = async (dirPath: string) => {
-      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dirPath, entry.name);
-        if (this.isExcluded(fullPath)) continue;
-
-        const relativePath = path.relative(this.workspaceRoot, fullPath);
-        if (this.searchTerms.length > 0 && !this.pathMatchesSearch(relativePath)) continue;
-
-        if (entry.isDirectory()) {
-          await processDir(fullPath);
-        } else {
-          result.push(fullPath);
-        }
-      }
-    };
-
-    await processDir(this.workspaceRoot);
-    return result;
+  async countVisibleFiles(): Promise<number> {
+    const visibleFiles = await this.getMatchingFiles(this.workspaceRoot);
+    return visibleFiles.length;
   }
 
   async selectAllFiles(maxFiles: number): Promise<boolean> {
-    const visibleFiles = await this.getVisibleFiles();
+    const visibleFiles = await this.getMatchingFiles(this.workspaceRoot);
     if (visibleFiles.length > maxFiles) {
       return false;
     }

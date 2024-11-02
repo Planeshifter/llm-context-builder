@@ -38,6 +38,8 @@
 - `LLM Context Builder: Create Context Prompt`
 - `LLM Context Builder: Toggle Code Minification`
 - `LLM Context Builder: Update Exclude List`
+- `LLM Context Builder: Open Selected Files`
+- `LLM Context Builder: Select All Files`
 
 ## Configuration
 
