@@ -64,7 +64,8 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       '.gz', // Archives
       '.exe',
       '.dll',
-      '.so', // Binaries
+      '.so', // Binaries,
+      '.vsix', // VS Code extensions
     ]);
   }
 
@@ -372,7 +373,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   private isExcluded(filePath: string): boolean {
     const relativePath = path.relative(this.workspaceRoot, filePath);
     const isExcludedDirectory = this.excludeList.some(
-      dir => relativePath.split(path.sep).includes(dir) || relativePath === dir
+      dir => relativePath === dir || relativePath.startsWith(dir + path.sep)
     );
     const isExcludedFileType = this.excludeFileTypes.some(ext =>
       filePath.toLowerCase().endsWith(ext.toLowerCase())
