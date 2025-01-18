@@ -5,7 +5,7 @@
   "description": "Assemble contextual information from project files for usage in LLMs.",
   "icon": "media/icon.png",
   "license": "BlueOak-1.0.0",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "repository": {
     "type": "git",
     "url": "https://github.com/Planeshifter/llm-context-builder"
