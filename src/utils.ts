@@ -1,6 +1,8 @@
 import * as path from 'path';
 import { readFile } from 'fs/promises';
 import * as vscode from 'vscode';
+import jschardet from 'jschardet';
+import iconv from 'iconv-lite';
 
 import { FileItem } from './file-item';
 
@@ -120,7 +122,22 @@ export async function minifyCode(code: string): Promise<string> {
  */
 export async function getFileContent(filePath: string, workspaceRoot: string): Promise<string> {
   const relativePath = path.relative(workspaceRoot, filePath);
-  let content = await readFile(filePath, 'utf8');
+
+  const buffer = await readFile(filePath);
+  const detection = jschardet.detect(buffer) || {};
+  let encoding = detection.encoding ? detection.encoding.toLowerCase() : 'utf-8';
+
+  if (encoding === 'utf-16' || encoding === 'utf-16le') {
+    encoding = 'utf-16le';
+  }
+  if (!iconv.encodingExists(encoding)) {
+    encoding = 'utf-8';
+  }
+  let content = iconv.decode(buffer, encoding);
+
+  // Strip BOM if present:
+  content = content.replace(/^\uFEFF/, '');
+
   content = stripLicenseHeaders(content);
 
   const language = getLanguageFromFilename(filePath);

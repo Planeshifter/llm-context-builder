@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { encodingForModel } from 'js-tiktoken';
+import jschardet from 'jschardet';
+import iconv from 'iconv-lite';
 import throttle from 'lodash.throttle';
 
 import { getLabelText, getLanguageFromFilename, stripLicenseHeaders, minifyCode } from './utils';
@@ -394,7 +396,22 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   private async addFile(filePath: string) {
-    let content = await fs.promises.readFile(filePath, 'utf8');
+    const buffer = await fs.promises.readFile(filePath);
+
+    const detection = jschardet.detect(buffer) || {};
+    let encoding = detection.encoding ? detection.encoding.toLowerCase() : 'utf-8';
+
+    if (encoding === 'ascii') {
+      encoding = 'utf-8';
+    } else if (encoding === 'utf-16' || encoding === 'utf-16le') {
+      encoding = 'utf-16le';
+    }
+    if (!iconv.encodingExists(encoding)) {
+      encoding = 'utf-8';
+    }
+
+    let content = iconv.decode(buffer, encoding);
+
     content = stripLicenseHeaders(content);
 
     const config = vscode.workspace.getConfiguration('contextPrompt');
