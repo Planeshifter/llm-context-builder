@@ -1,13 +1,29 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+
 import { encodingForModel } from 'js-tiktoken';
 import jschardet from 'jschardet';
 import iconv from 'iconv-lite';
 import throttle from 'lodash.throttle';
-
+import { LRUCache } from 'lru-cache';
 import { getLabelText, getLanguageFromFilename, stripLicenseHeaders, minifyCode } from './utils';
 import { FileItem } from './file-item';
+
+const options = {
+  max: 5_000, // Maximum number of entries in the cache
+};
+const statCache = new LRUCache<string, fs.Stats>(options);
+const fileProcessCache = new LRUCache<string, { mtime: number; tokenCount: number }>(options);
+
+async function getStat(filePath: string): Promise<fs.Stats> {
+  if (statCache.has(filePath)) {
+    return statCache.get(filePath)!;
+  }
+  const stat = await fs.promises.stat(filePath);
+  statCache.set(filePath, stat);
+  return stat;
+}
 
 export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<FileItem | undefined | null | void> =
@@ -357,7 +373,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         .filter(file => !this.isExcluded(path.join(dir, file)))
         .map(async file => {
           const filePath = path.join(dir, file);
-          const stat = await fs.promises.stat(filePath);
+          const stat = await getStat(filePath);
           const isDirectory = stat.isDirectory();
           const isSelected = this.isSelected(filePath);
           const tokenCount = isDirectory
@@ -397,11 +413,21 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   private async addFile(filePath: string) {
+    const stat = await getStat(filePath);
+
+    // Check if we have a cached result for this file with the same modification time:
+    const cached = fileProcessCache.get(filePath);
+    if (cached && cached.mtime === stat.mtimeMs) {
+      // Use the cached token count.
+      this._selected.set(filePath, cached.tokenCount);
+      return;
+    }
+
+    // Read the file contents:
     const buffer = await fs.promises.readFile(filePath);
 
     const detection = jschardet.detect(buffer) || {};
     let encoding = detection.encoding ? detection.encoding.toLowerCase() : 'utf-8';
-
     if (encoding === 'ascii') {
       encoding = 'utf-8';
     } else if (encoding === 'utf-16' || encoding === 'utf-16le') {
@@ -417,7 +443,6 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
 
     const config = vscode.workspace.getConfiguration('contextPrompt');
     const minifyEnabled = config.get<boolean>('minifyCode', false);
-
     if (minifyEnabled) {
       const language = getLanguageFromFilename(filePath);
       if (language === 'typescript' || language === 'javascript') {
@@ -425,8 +450,16 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
       }
     }
 
+    // Compute token count from the content.:
     const tokenCount = this.tokenizer.encode(content).length;
+
+    // Store the result in the LRU cache:
+    fileProcessCache.set(filePath, { mtime: stat.mtimeMs, tokenCount });
+
+    // Mark this file as selected with its token count:
     this._selected.set(filePath, tokenCount);
+
+    // Update parent directories as needed:
     await this.updateParentDirectorySelection(filePath);
   }
 
@@ -450,7 +483,7 @@ export class FileExplorerProvider implements vscode.TreeDataProvider<FileItem> {
         continue;
       }
 
-      const stat = await fs.promises.stat(filePath);
+      const stat = await getStat(filePath);
       if (stat.isDirectory()) {
         const { files, dirs } = await this.getAllChildren(filePath, token);
         allDirs.push(filePath, ...dirs);
